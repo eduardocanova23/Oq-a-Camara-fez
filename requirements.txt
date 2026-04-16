@@ -1,0 +1,23 @@
+# =============================================================================
+# requirements.txt
+# Dependências do pipeline camara-data.
+#
+# Instalação:
+#   pip install -r requirements.txt
+# =============================================================================
+
+# --- Dados e pipeline ---
+pandas>=2.0.0
+pyarrow>=14.0.0          # backend parquet para pandas
+requests>=2.31.0         # coleta via HTTP
+tqdm>=4.66.0             # barras de progresso nos scripts de enriquecimento
+
+# --- Classificador de temas (GPT) ---
+openai>=1.30.0           # cliente oficial OpenAI (usado em 3_classificar_temas.py)
+
+# --- API pública (fase futura) ---
+fastapi>=0.111.0         # framework da API REST
+uvicorn>=0.29.0          # servidor ASGI para rodar o FastAPI
+
+# --- Banco de dados (fase futura) ---
+supabase>=2.4.0          # cliente Supabase para upload da base final
