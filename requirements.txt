@@ -21,3 +21,4 @@ uvicorn>=0.29.0          # servidor ASGI para rodar o FastAPI
 
 # --- Banco de dados (fase futura) ---
 supabase>=2.4.0          # cliente Supabase para upload da base final
+httpx>=0.27.0            # cliente HTTP assíncrono (usado em 6_atualizar.py)
