@@ -11,11 +11,13 @@ import streamlit as st
 from utils.dados import (
     base_com_deputados,
     contagem_por_tema,
+    contar_deputados_envolvidos,
     filtrar,
     lista_partidos_disponiveis,
-    serie_temporal,
     tempo_tramitacao_por_tema,
     COR_SITUACAO,
+    GRUPOS_AUTOR,
+    MODOS_PARTIDO,
     SITUACOES,
     TIPOS,
 )
@@ -50,6 +52,45 @@ st.markdown("""
     section[data-testid="stSidebar"] * {
         color: #1A2744 !important;
     }
+    
+    /* fundo do multiselect e date */
+    section[data-testid="stSidebar"] [data-baseweb="select"] div,
+    section[data-testid="stSidebar"] [data-baseweb="input"] {
+        background-color: #FFFFFF !important;
+        color: #1A2744 !important;
+    }
+
+    /* tags selecionadas no multiselect */
+    section[data-testid="stSidebar"] [data-baseweb="tag"] {
+        background-color: #E4E7EF !important;
+        color: #1A2744 !important;
+    }
+
+    section[data-testid="stSidebar"] [data-baseweb="select"] {
+        overflow: visible !important;
+    }
+
+    section[data-testid="stSidebar"] [data-baseweb="tag"] {
+        margin-top: 4px !important;
+        margin-bottom: 4px !important;
+    }
+            
+    section[data-testid="stSidebar"] [data-baseweb="tag"]:first-child {
+        padding-left: 4px !important;
+        margin-left: 16px !important;
+    }
+            
+    /* dropdown das opções */
+    [data-baseweb="popover"] {
+        background-color: #FFFFFF !important;
+        color: #1A2744 !important;
+    }
+
+    [data-baseweb="menu"] li {
+        background-color: #FFFFFF !important;
+        color: #1A2744 !important;
+    }
+            
     .block-container {
         padding-top: 2rem;
     }
@@ -62,7 +103,7 @@ st.markdown("""
         padding: 16px 20px;
     }
     div[data-testid="metric-container"] label {
-        color: #5C6B8A !important;
+        color: #1A2744 !important;
         font-size: 11px !important;
         font-weight: 600 !important;
         letter-spacing: 0.08em !important;
@@ -73,6 +114,14 @@ st.markdown("""
         font-family: 'Fraunces', serif !important;
         font-size: 28px !important;
         font-weight: 700 !important;
+    }
+    div[data-testid="metric-container"] * {
+        color: #1A2744 !important;
+    }
+            
+    [class*="st-emotion-cache"] [data-testid="stMetricValue"],
+    [class*="st-emotion-cache"] [data-testid="stMetricLabel"] {
+        color: #1A2744 !important;
     }
 
     /* destaque narrativo */
@@ -85,7 +134,7 @@ st.markdown("""
         margin-bottom: 8px;
     }
     .destaque-label {
-        color: #5C6B8A;
+        color: #1A2744;
         font-size: 10px;
         font-weight: 600;
         letter-spacing: 0.1em;
@@ -99,7 +148,7 @@ st.markdown("""
         font-weight: 700;
     }
     .destaque-sub {
-        color: #5C6B8A;
+        color: #1A2744;
         font-size: 12px;
         margin-top: 2px;
     }
@@ -114,7 +163,7 @@ st.markdown("""
     }
     .page-subtitle {
         font-size: 14px;
-        color: #5C6B8A;
+        color: #1A2744;
         margin-bottom: 24px;
     }
 
@@ -136,13 +185,13 @@ st.markdown("""
 PLOT_LAYOUT = dict(
     paper_bgcolor="#FFFFFF",
     plot_bgcolor="#FFFFFF",
-    font=dict(family="DM Sans, sans-serif", color="#5C6B8A", size=12),
+    font=dict(family="DM Sans, sans-serif", color="#1A2744", size=12),
     margin=dict(l=0, r=0, t=32, b=0),
 )
 
 COR_SITUACAO_CLARO = {
     "Em tramitação":                  "#2563EB",
-    "Arquivada":                      "#CBD5E1",
+    "Arquivada":                      "#ff4d4d",
     "Transformada em norma jurídica": "#2D6A4F",
 }
 
@@ -199,13 +248,31 @@ with st.sidebar:
         default=SITUACOES,
     )
 
-    partidos_disponiveis = lista_partidos_disponiveis(df_full)
-    partidos_sel = st.multiselect(
-        "Partido do autor",
-        options=partidos_disponiveis,
-        default=[],
-        placeholder="Todos os partidos",
+    grupos_autor_sel = st.multiselect(
+        "Tipo de autor",
+        options=list(GRUPOS_AUTOR.keys()),
+        default=list(GRUPOS_AUTOR.keys()),
     )
+
+    # modo de contagem e filtro de partido só aparecem quando Deputado(a) está selecionado
+    partidos_sel = []
+    modo_partido = "principal"
+    if not grupos_autor_sel or "Deputado(a)" in grupos_autor_sel:
+        modo_partido_label = st.radio(
+            "Autoria",
+            options=list(MODOS_PARTIDO.keys()),
+            index=0,
+            help="'Só o autor principal' usa apenas quem assinou primeiro. 'Todos que tiveram coautoria' inclui qualquer coautor deputado.",
+        )
+        modo_partido = MODOS_PARTIDO[modo_partido_label]
+
+        partidos_disponiveis = lista_partidos_disponiveis(df_full)
+        partidos_sel = st.multiselect(
+            "Partido do autor",
+            options=partidos_disponiveis,
+            default=[],
+            placeholder="Todos os partidos",
+        )
 
     st.markdown("---")
     ultima = df_full["ultimoStatus_dataHora"].max()
@@ -222,6 +289,8 @@ df = filtrar(
     situacoes=situacoes_sel if situacoes_sel else None,
     tipos=tipos_sel if tipos_sel else None,
     partidos=partidos_sel if partidos_sel else None,
+    modo_partido=modo_partido,
+    grupos_autor=grupos_autor_sel if grupos_autor_sel else None,
 )
 
 # -----------------------------------------------------------------------------
@@ -249,45 +318,60 @@ n_arquivadas = (df["situacao_simplificada"] == "Arquivada").sum()
 n_tramitando = (df["situacao_simplificada"] == "Em tramitação").sum()
 
 c1, c2, c3, c4 = st.columns(4)
+
 with c1:
-    st.metric("Total de proposições", f"{n_total:,}")
+    st.markdown(f"""
+    <div class="destaque-box">
+        <div class="destaque-label">Total de proposições</div>
+        <div class="destaque-valor">{n_total:,}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
 with c2:
-    st.metric(
-        "Viraram norma",
-        f"{n_normas:,}",
-        delta=f"{n_normas/n_total*100:.1f}% do total",
-        delta_color="normal",
-    )
+    st.markdown(f"""
+    <div class="destaque-box">
+        <div class="destaque-label">Viraram norma</div>
+        <div class="destaque-valor">{n_normas:,}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
 with c3:
-    st.metric(
-        "Arquivadas",
-        f"{n_arquivadas:,}",
-        delta=f"{n_arquivadas/n_total*100:.1f}% do total",
-        delta_color="off",
-    )
+    st.markdown(f"""
+    <div class="destaque-box">
+        <div class="destaque-label">Arquivadas</div>
+        <div class="destaque-valor">{n_arquivadas:,}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
 with c4:
-    st.metric(
-        "Em tramitação",
-        f"{n_tramitando:,}",
-        delta=f"{n_tramitando/n_total*100:.1f}% do total",
-        delta_color="off",
-    )
+    st.markdown(f"""
+    <div class="destaque-box">
+        <div class="destaque-label">Em tramitação</div>
+        <div class="destaque-valor">{n_tramitando:,}</div>
+    </div>
+    """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# DESTAQUES NARRATIVOS
+# LINHA 2 — CARDS DE ANÁLISE
 # -----------------------------------------------------------------------------
 st.markdown("")
 
-df_finais    = df[df["situacao_simplificada"].isin(["Transformada em norma jurídica", "Arquivada"])]
-tempo_medio  = df_finais["_dias_tramitacao"].median() if not df_finais.empty else 0
-tempo_anos   = tempo_medio / 365
+df_finais   = df[df["situacao_simplificada"].isin(["Transformada em norma jurídica", "Arquivada"])]
+tempo_medio = df_finais["_dias_tramitacao"].median() if not df_finais.empty else 0
+tempo_anos  = tempo_medio / 365
 
-temas_cont   = contagem_por_tema(df)
-tema_top     = temas_cont.iloc[0]["tema"] if not temas_cont.empty else "—"
-tema_top_n   = int(temas_cont.iloc[0]["total"]) if not temas_cont.empty else 0
-taxa_efet    = n_normas / (n_normas + n_arquivadas) * 100 if (n_normas + n_arquivadas) > 0 else 0
+temas_cont  = contagem_por_tema(df)
+tema_top    = temas_cont.iloc[0]["tema"] if not temas_cont.empty else "—"
+tema_top_n  = int(temas_cont.iloc[0]["total"]) if not temas_cont.empty else 0
+taxa_efet   = n_normas / (n_normas + n_arquivadas) * 100 if (n_normas + n_arquivadas) > 0 else 0
 
-d1, d2, d3 = st.columns(3)
+ids_deps = contar_deputados_envolvidos(
+    df,
+    partidos=partidos_sel or None,
+    modo_partido=modo_partido,
+)
+
+d1, d2, d3, d4 = st.columns(4)
 
 with d1:
     st.markdown(f"""
@@ -316,31 +400,14 @@ with d3:
     </div>
     """, unsafe_allow_html=True)
 
-# -----------------------------------------------------------------------------
-# LINHA DO TEMPO
-# -----------------------------------------------------------------------------
-st.markdown('<div class="secao">Produção ao longo do tempo</div>', unsafe_allow_html=True)
-
-serie = serie_temporal(df, freq="M")
-
-fig_tempo = go.Figure()
-fig_tempo.add_trace(go.Scatter(
-    x=serie["periodo"],
-    y=serie["n"],
-    mode="lines",
-    fill="tozeroy",
-    line=dict(color="#1A2744", width=2),
-    fillcolor="rgba(26, 39, 68, 0.06)",
-    hovertemplate="<b>%{x|%b/%Y}</b><br>%{y} proposições<extra></extra>",
-))
-fig_tempo.update_layout(
-    **PLOT_LAYOUT,
-    height=220,
-    xaxis=dict(showgrid=False, zeroline=False, tickformat="%b/%y", color="#9BA8C0"),
-    yaxis=dict(showgrid=True, gridcolor="#F0F2F7", zeroline=False),
-    showlegend=False,
-)
-st.plotly_chart(fig_tempo, use_container_width=True)
+with d4:
+    st.markdown(f"""
+    <div class="destaque-box">
+        <div class="destaque-label">Deputados envolvidos</div>
+        <div class="destaque-valor">{ids_deps:,}</div>
+        <div class="destaque-sub">com proposições no período</div>
+    </div>
+    """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
 # SITUAÇÃO POR TEMA (barras empilhadas)
@@ -352,8 +419,8 @@ temas_df = contagem_por_tema(df).head(20)
 fig_temas = go.Figure()
 col_map = {
     "Em tramitação":                  ("tramitando",  "#2563EB"),
-    "Arquivada":                      ("arquivadas",  "#CBD5E1"),
-    "Transformada em norma jurídica": ("normas",      "#2D6A4F"),
+    "Arquivada":                      ("arquivadas",  "#ff4d4d"),
+    "Transformada em norma jurídica": ("normas",      "#2CE793"),
 }
 for sit, (col, cor) in col_map.items():
     fig_temas.add_trace(go.Bar(
@@ -369,13 +436,13 @@ fig_temas.update_layout(
     **PLOT_LAYOUT,
     barmode="stack",
     height=520,
-    xaxis=dict(showgrid=True, gridcolor="#F0F2F7", zeroline=False, title="Nº de proposições", color="#9BA8C0"),
-    yaxis=dict(showgrid=False, zeroline=False, autorange="reversed", color="#1A2744"),
+    xaxis=dict(showgrid=True, gridcolor="#1A2744", zeroline=False, title="Nº de proposições", color="#1A2744", tickfont=dict(color="#1A2744")),
+    yaxis=dict(showgrid=False, zeroline=False, autorange="reversed", color="#1A2744", tickfont=dict(color="#1A2744")),
     legend=dict(
         orientation="h",
         yanchor="bottom", y=1.02,
         xanchor="left", x=0,
-        font=dict(size=11, color="#5C6B8A"),
+        font=dict(size=11, color="#1A2744"),
         bgcolor="rgba(0,0,0,0)",
     ),
 )
@@ -401,9 +468,9 @@ with col_tipo:
     fig_tipo.update_layout(
         **PLOT_LAYOUT,
         height=300,
-        title=dict(text="Por tipo", font=dict(size=12, color="#5C6B8A"), x=0),
-        xaxis=dict(showgrid=False, zeroline=False, color="#9BA8C0"),
-        yaxis=dict(showgrid=True, gridcolor="#F0F2F7", zeroline=False),
+        title=dict(text="Por tipo", font=dict(size=12, color="#1A2744"), x=0),
+        xaxis=dict(showgrid=False, zeroline=False, color="#1A2744", tickfont=dict(color="#1A2744")),
+        yaxis=dict(showgrid=True, gridcolor="#1A2744", zeroline=False, tickfont=dict(color="#1A2744")),
         showlegend=False,
     )
     st.plotly_chart(fig_tipo, use_container_width=True)
@@ -413,10 +480,6 @@ with col_tempo:
 
     if not tempo_tema.empty:
         tempo_tema["mediana_anos"] = (tempo_tema["mediana_dias"] / 365).round(1)
-
-        # escala de cor: verde (rápido) → vermelho (lento)
-        max_dias = tempo_tema["mediana_dias"].max()
-        min_dias = tempo_tema["mediana_dias"].min()
 
         fig_tempo_tema = go.Figure(go.Bar(
             y=tempo_tema["tema"],
@@ -439,13 +502,13 @@ with col_tempo:
             height=300,
             title=dict(
                 text="Tempo mediano de tramitação por tema",
-                font=dict(size=12, color="#5C6B8A"), x=0
+                font=dict(size=12, color="#1A2744"), x=0
             ),
             xaxis=dict(
-                showgrid=True, gridcolor="#F0F2F7",
-                zeroline=False, title="dias", color="#9BA8C0"
+                showgrid=True, gridcolor="#1A2744",
+                zeroline=False, title="dias", color="#1A2744", tickfont=dict(color="#1A2744")
             ),
-            yaxis=dict(showgrid=False, zeroline=False, autorange="reversed", color="#1A2744"),
+            yaxis=dict(showgrid=False, zeroline=False, autorange="reversed", color="#1A2744", tickfont=dict(color="#1A2744")),
             showlegend=False,
         )
         st.plotly_chart(fig_tempo_tema, use_container_width=True)
