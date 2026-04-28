@@ -20,6 +20,9 @@ from utils.dados import (
     parse_list_safe,
 )
 
+from utils.style import apply_global_style
+apply_global_style()
+
 st.markdown("""
 <style>
     html, body, [class*="css"] { font-family: 'Inter, sans-serif; }

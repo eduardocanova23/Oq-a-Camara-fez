@@ -16,6 +16,9 @@ st.set_page_config(
     layout="wide",
 )
 
+from utils.style import apply_global_style
+apply_global_style()
+
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap');

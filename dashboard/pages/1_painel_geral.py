@@ -31,6 +31,9 @@ st.set_page_config(
     layout="wide",
 )
 
+from utils.style import apply_global_style
+apply_global_style()
+
 # -----------------------------------------------------------------------------
 # ESTILO — claro, editorial
 # -----------------------------------------------------------------------------
