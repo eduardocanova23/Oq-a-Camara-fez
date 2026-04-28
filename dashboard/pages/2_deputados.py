@@ -89,6 +89,47 @@ st.markdown("""
         color: #9BA8C0; margin: 24px 0 12px 0;
         padding-bottom: 8px; border-bottom: 1px solid #E4E7EF;
     }
+            /* Botões do Streamlit */
+    div.stButton > button {
+        background-color: #FFFFFF !important;
+        color: #1A2744 !important;
+        border: 1px solid #E4E7EF !important;
+    }
+
+    /* Hover */
+    div.stButton > button:hover {
+        background-color: #F0F2F7 !important;
+        color: #1A2744 !important;
+        border: 1px solid #1A2744 !important;
+    }
+            
+    /* Input de texto (barra de busca) */
+    div[data-baseweb="input"] > div {
+        background-color: #FFFFFF !important;
+        color: #1A2744 !important;
+        border: 1px solid #E4E7EF !important;
+    }
+
+    /* Texto digitado */
+    div[data-baseweb="input"] input {
+        background-color: #FFFFFF !important;
+        color: #1A2744 !important;
+    }
+
+/* Placeholder */
+    div[data-baseweb="input"] input::placeholder {
+        color: #9BA8C0 !important;
+    }
+            
+    /* Barra superior do Streamlit */
+header[data-testid="stHeader"] {
+    background-color: #F7F8FA !important;
+}
+
+    /* Remove sombra/linha se houver */
+    header[data-testid="stHeader"]::before {
+        background: none !important;
+    }            
 </style>
 """, unsafe_allow_html=True)
 

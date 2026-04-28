@@ -20,16 +20,9 @@ from utils.dados import (
     parse_list_safe,
 )
 
-st.set_page_config(
-    page_title="Perfil — Câmara Data",
-    page_icon="🇧🇷",
-    layout="wide",
-)
-
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap');
-    html, body, [class*="css"] { font-family: 'DM Sans', sans-serif; }
+    html, body, [class*="css"] { font-family: 'Inter, sans-serif; }
     .stApp { background-color: #F7F8FA; color: #1A2744; }
     section[data-testid="stSidebar"] { background-color: #FFFFFF; border-right: 1px solid #E4E7EF; }
     section[data-testid="stSidebar"] * { color: #1A2744 !important; }
@@ -119,25 +112,126 @@ st.markdown("""
     .prop-sit-norma  { color: #2D6A4F; font-size: 11px; font-weight: 600; }
     .prop-sit-tram   { color: #2563EB; font-size: 11px; font-weight: 600; }
     .prop-sit-arq    { color: #DC2626; font-size: 11px; font-weight: 600; }
+            
+    /* Barra superior do Streamlit */
+    header[data-testid="stHeader"] {
+        background-color: #F7F8FA !important;
+    }
+
+    /* Remove sombra/linha se houver */
+    header[data-testid="stHeader"]::before {
+        background: none !important;
+    }
+            
+        /* Sidebar inteira */
+    section[data-testid="stSidebar"] {
+        background-color: #FFFFFF !important;
+        border-right: 1px solid #E4E7EF !important;
+    }
+
+    /* Tudo dentro da sidebar */
+    section[data-testid="stSidebar"] * {
+        background-color: transparent !important;
+        color: #1A2744 !important;
+    }
+
+    /* Inputs dentro da sidebar */
+    section[data-testid="stSidebar"] [data-baseweb="select"],
+    section[data-testid="stSidebar"] [data-baseweb="input"] {
+        background-color: #FFFFFF !important;
+    }
+
+    /* Tags selecionadas (multiselect) */
+    section[data-testid="stSidebar"] [data-baseweb="tag"] {
+        background-color: #F0F2F7 !important;
+        color: #1A2744 !important;
+    }
+    /* Fundo global */
+    html, body {
+        background-color: #FFFFFF !important;
+    }
+
+    .stApp {
+        background-color: #FFFFFF !important;
+    }
+
+    /* Container principal */
+    .main, .block-container {
+        background-color: #FFFFFF !important;
+    }
+    /* Container do select/multiselect */
+section[data-testid="stSidebar"] [data-baseweb="select"] > div {
+    background-color: #FFFFFF !important;
+    border: 1px solid #E4E7EF !important;
+}
+
+/* Área onde aparece o valor selecionado */
+section[data-testid="stSidebar"] [data-baseweb="select"] div {
+    background-color: #FFFFFF !important;
+    color: #1A2744 !important;
+}
+
+/* Texto dentro do select */
+section[data-testid="stSidebar"] [data-baseweb="select"] span {
+    color: #1A2744 !important;
+}
+
+    /* Tags (itens selecionados no multiselect) */
+    section[data-testid="stSidebar"] [data-baseweb="tag"] {
+        background-color: #F0F2F7 !important;
+        color: #1A2744 !important;
+        border: 1px solid #E4E7EF !important;
+    }
+
+    /* Botão de remover (x) dentro da tag */
+    section[data-testid="stSidebar"] [data-baseweb="tag"] svg {
+        fill: #1A2744 !important;
+    }
+
+    /* Dropdown aberto (lista de opções) */
+    [data-baseweb="menu"] {
+        background-color: #FFFFFF !important;
+    }
+
+    [data-baseweb="menu"] li {
+        background-color: #FFFFFF !important;
+        color: #1A2744 !important;
+    }
+
+    /* Hover nas opções */
+    [data-baseweb="menu"] li:hover {
+        background-color: #F0F2F7 !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
 PLOT_LAYOUT = dict(
     paper_bgcolor="#FFFFFF", plot_bgcolor="#FFFFFF",
-    font=dict(family="DM Sans, sans-serif", color="#1A2744", size=12),
+    font=dict(family="Inter, sans-serif", color="#1A2744", size=12),
     margin=dict(l=0, r=0, t=32, b=0),
 )
 
 # -----------------------------------------------------------------------------
-# VERIFICA SESSION STATE
+# LÊ DEP_ID — session_state (navegação normal) ou query_params (link direto)
+# URL compartilhável: /Perfil?dep_id=204478
 # -----------------------------------------------------------------------------
-if "dep_id" not in st.session_state:
+dep_id_str = (
+    st.session_state.get("dep_id")
+    or st.query_params.get("dep_id")
+)
+if not dep_id_str:
     st.warning("Nenhum deputado selecionado. Volte para a página de Deputados.")
     if st.button("← Ir para Deputados"):
         st.switch_page("pages/2_deputados.py")
     st.stop()
 
-dep_id = int(st.session_state["dep_id"])
+try:
+    dep_id = int(dep_id_str)
+    # sincroniza query_params com o ID atual para URL compartilhável
+    st.query_params["dep_id"] = str(dep_id)
+except ValueError:
+    st.error("ID de deputado inválido.")
+    st.stop()
 
 # -----------------------------------------------------------------------------
 # SIDEBAR

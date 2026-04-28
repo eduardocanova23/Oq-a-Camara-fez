@@ -43,6 +43,15 @@ st.markdown("""
         margin-top: 40px; padding-top: 16px;
         border-top: 1px solid #E4E7EF;
     }
+    /* Barra superior do Streamlit */
+    header[data-testid="stHeader"] {
+        background-color: #F7F8FA !important;
+    }
+
+    /* Remove sombra/linha se houver */
+    header[data-testid="stHeader"]::before {
+        background: none !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
