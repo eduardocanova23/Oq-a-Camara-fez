@@ -1,27 +1,36 @@
 import json
-import json
+import time
 import pandas as pd
+from collections import Counter
+from utils.dados import carregar_base, parse_list_safe
 
-def _parse_temas(x):
-    if pd.isna(x) or x is None:
-        return []
-    try:
-        dados = json.loads(x) if isinstance(x, str) else x
-        return [str(t[0]).strip() for t in dados if isinstance(t, list) and len(t) >= 1 and t[0]]
-    except:
-        return []
+start = time.time()
+df = carregar_base()
 
-df = pd.read_parquet(r"C:\Users\Utilisateur\Desktop\oq-a-camara-faz\pipeline\data\final\base_legislativa.parquet")
-df["_temas_lista"] = df["temas_tuplas_json"].apply(_parse_temas)
+# só proposições com mais de um autor deputado
+def extrair_ids_deputados(x):
+    autores = parse_list_safe(x)
+    return [
+        int(a["idDeputado"]) for a in autores
+        if isinstance(a, dict) and a.get("idDeputado") is not None
+    ]
 
-tema_alvo = "Direitos Humanos e Minorias"
-df_tema = df[df["_temas_lista"].apply(lambda lst: tema_alvo in lst)]
+df["_ids_deps"] = df["autores_json"].apply(extrair_ids_deputados)
+multi = df[df["_ids_deps"].apply(len) > 1].copy()
 
-# Amostra estratificada por tipo
-amostra = df_tema.groupby("siglaTipo", group_keys=False).apply(
-    lambda g: g.sample(min(len(g), 6), random_state=99)
-).sample(frac=1, random_state=99).head(20).reset_index(drop=True)
+print(f"Proposições com múltiplos autores deputados: {len(multi)}")
 
-for i, row in amostra.iterrows():
-    print(f"\n[{i+1}] [{row['siglaTipo']}] {row['ementa']}")
-    print(f"  keywords: {row['keywords']}")
+# para cada par de deputados que coautoraram, conta quantas vezes
+coautorias = Counter()
+for ids in multi["_ids_deps"]:
+    ids = list(set(ids))  # remove duplicatas dentro da mesma proposição
+    for i in range(len(ids)):
+        for j in range(i+1, len(ids)):
+            par = tuple(sorted([ids[i], ids[j]]))
+            coautorias[par] += 1
+
+print(f"Pares únicos de coautoria: {len(coautorias)}")
+print(f"Tempo: {time.time()-start:.1f}s")
+print(f"\nTop 5 pares mais frequentes:")
+for par, n in coautorias.most_common(5):
+    print(f"  {par}: {n} proposições juntos")

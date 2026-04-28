@@ -17,7 +17,8 @@ _ROOT = Path(__file__).parent.parent.parent
 _PIPELINE_FINAL = _ROOT / "pipeline" / "data" / "final"
 
 PATH_BASE      = _PIPELINE_FINAL / "base_legislativa.parquet"
-PATH_DEPUTADOS = _PIPELINE_FINAL / "deputados.parquet"
+PATH_DEPUTADOS  = _PIPELINE_FINAL / "deputados.parquet"
+PATH_COAUTORIAS = _PIPELINE_FINAL / "coautorias.parquet"
 
 # -----------------------------------------------------------------------------
 # CONSTANTES
@@ -334,6 +335,14 @@ def contar_deputados_envolvidos(
     partidos: list[str] | None = None,
     modo_partido: str = "principal",
 ) -> int:
+    """
+    Conta deputados únicos nas proposições filtradas.
+
+    - modo "principal" sem partido: conta autores principais únicos
+    - modo "principal" com partido: conta autores principais do partido
+    - modo "todos" sem partido: conta todos os coautores únicos
+    - modo "todos" com partido: conta todos os coautores do partido
+    """
     deps = carregar_deputados()[["id", "siglaPartido"]].dropna()
     mapa = dict(zip(deps["id"].astype(int), deps["siglaPartido"]))
     partidos_set = set(partidos) if partidos else None
@@ -341,8 +350,9 @@ def contar_deputados_envolvidos(
     if modo_partido == "principal":
         ids = df["_autor_principal"].apply(
             lambda a: (
-                a.get("idDeputado")
+                int(a["idDeputado"])
                 if isinstance(a, dict)
+                and a.get("idDeputado") is not None
                 and (partidos_set is None or mapa.get(int(a["idDeputado"]), "") in partidos_set)
                 else None
             )
@@ -361,3 +371,98 @@ def contar_deputados_envolvidos(
             .nunique()
         )
     return int(ids)
+
+
+# -----------------------------------------------------------------------------
+# DEPUTADOS — FUNÇÕES ESPECÍFICAS
+# -----------------------------------------------------------------------------
+
+@st.cache_data(ttl=3600)
+def carregar_coautorias() -> pd.DataFrame:
+    """Carrega o parquet de coautorias pré-calculadas."""
+    df = pd.read_parquet(PATH_COAUTORIAS)
+    df["id_deputado"] = pd.to_numeric(df["id_deputado"], errors="coerce").astype(int)
+    return df
+
+
+def proposicoes_do_deputado(
+    df_base: pd.DataFrame,
+    dep_id: int,
+    modo: str = "principal",
+) -> pd.DataFrame:
+    """
+    Retorna proposições associadas a um deputado.
+
+    modo:
+        "principal" — só onde é autor principal
+        "coautor"   — onde aparece como coautor mas não é o principal
+        "ambos"     — os dois
+    """
+    # sempre calcula ambas as máscaras para evitar UnboundLocalError
+    mask_principal = df_base["_autor_principal"].apply(
+        lambda a: isinstance(a, dict) and int(a.get("idDeputado", 0)) == dep_id
+    )
+    mask_coautor = df_base["autores_deputados"].apply(
+        lambda x: any(
+            isinstance(a, dict) and int(a.get("idDeputado", 0)) == dep_id
+            for a in parse_list_safe(x)
+        )
+    )
+
+    if modo == "principal":
+        return df_base[mask_principal].copy()
+    elif modo == "coautor":
+        return df_base[mask_coautor & ~mask_principal].copy()
+    else:
+        return df_base[mask_principal | mask_coautor].copy()
+
+
+def top_coautores(dep_id: int, n: int = 5) -> list[dict]:
+    """
+    Retorna os top N coautores de um deputado com dados enriquecidos.
+    Cada item: {id_coautor, n_proposicoes, nome, siglaPartido, siglaUf, urlFoto}
+    """
+    df_co = carregar_coautorias()
+    row = df_co[df_co["id_deputado"] == dep_id]
+    if row.empty:
+        return []
+
+    coautores_raw = json.loads(row.iloc[0]["coautores_json"])[:n]
+
+    deps = carregar_deputados().set_index("id")
+
+    resultado = []
+    for item in coautores_raw:
+        cid = item["id_coautor"]
+        try:
+            dep_info = deps.loc[cid]
+            resultado.append({
+                "id_coautor":    cid,
+                "n_proposicoes": item["n_proposicoes"],
+                "nome":          dep_info.get("nome", "—"),
+                "siglaPartido":  dep_info.get("siglaPartido", "—"),
+                "siglaUf":       dep_info.get("siglaUf", "—"),
+                "urlFoto":       dep_info.get("urlFoto", None),
+            })
+        except KeyError:
+            continue
+
+    return resultado
+
+
+def perfil_tematico(df_props: pd.DataFrame) -> pd.DataFrame:
+    """
+    Retorna contagem de proposições por tema para um conjunto de proposições.
+    Útil para o gráfico de pizza do perfil do deputado.
+    """
+    exploded = df_props[["group_id", "_temas_lista"]].copy()
+    exploded = exploded.explode("_temas_lista").rename(columns={"_temas_lista": "tema"})
+    exploded = exploded[exploded["tema"].notna() & (exploded["tema"] != "")]
+    return (
+        exploded.groupby("tema")
+        .size()
+        .rename_axis("tema")
+        .reset_index(name="n")
+        .sort_values("n", ascending=False)
+        .reset_index(drop=True)
+    )
