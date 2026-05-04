@@ -1,0 +1,8 @@
+# variáveis de ambiente e chaves de API
+.env
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+env/
