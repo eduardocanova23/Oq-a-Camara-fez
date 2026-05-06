@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python 3_classificar_teste_v2.py --modelo gpt-4o-mini --prompt v3 --seed 7)",
+      "Bash(set PYTHONIOENCODING=utf-8)",
+      "Bash(python -X utf8 3_classificar_teste_v2.py --modelo gpt-4o-mini --prompt v3 --seed 7)",
+      "Bash(python -X utf8 3_classificar_teste_v2.py --modelo gpt-4o-mini --prompt v3 --seed 42)",
+      "Bash(python -X utf8 3_classificar_teste_v2.py --modelo gpt-4o-mini --prompt v3 --seed 99)",
+      "PowerShell(cd \"C:\\\\Users\\\\Utilisateur\\\\Desktop\\\\oq-a-camara-faz\\\\pipeline\"; foreach \\($i in @\\(3,9,10,16,19,21,25,27,29\\)\\) { Write-Host \"=== #$i ===\" ; python -X utf8 teste4.py $i })",
+      "Bash(Select-String -Pattern \"RESULTADO|Eixo|Erros|esperado|obtido|===\")",
+      "Bash(python -c \"import anthropic; print\\(anthropic.__version__\\)\")",
+      "Bash(pip install *)",
+      "Bash(python -X utf8 3_classificar_teste_v2.py --provider anthropic --prompt v3 --sem-justificativa --seed 7)",
+      "PowerShell($key = [System.Environment]::GetEnvironmentVariable\\('ANTHROPIC_API_KEY', 'User'\\); if \\($key\\) { \"Found: \" + $key.Substring\\(0,15\\) + \"...\" } else { \"Not found in User env\" })"
+    ]
+  }
+}
